@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>パデル 3D</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1a33; font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; color: #fff; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  #score { position: fixed; top: 14px; left: 14px; background: rgba(10, 16, 32, 0.82); border-radius: 8px; overflow: hidden; font-size: 15px; box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+  #score table { border-collapse: collapse; }
+  #score td { padding: 6px 10px; }
+  #score .name { min-width: 120px; font-weight: 600; }
+  #score .g { background: rgba(255,255,255,.08); text-align: center; min-width: 30px; font-variant-numeric: tabular-nums; }
+  #score .p { background: #f4d03f; color: #111; text-align: center; min-width: 48px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #score .t0 .name::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2f7fe0; margin-right: 7px; }
+  #score .t1 .name::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e0483a; margin-right: 7px; }
+  #score .srv { color: #f4d03f; margin-left: 6px; font-size: 11px; }
+  #score .info { font-size: 11px; color: #aab; padding: 3px 10px 6px; }
+
+  #msg { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; transition: opacity .25s, transform .25s; }
+  #msg .big { font-size: 52px; font-weight: 800; letter-spacing: .04em; text-shadow: 0 3px 16px rgba(0,0,0,.6); }
+  #msg .small { font-size: 20px; margin-top: 6px; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+  #msg.off { opacity: 0; transform: translateY(-10px); }
+  #hint { position: fixed; bottom: 18px; left: 0; right: 0; text-align: center; font-size: 15px; color: #e6ecff; text-shadow: 0 2px 6px rgba(0,0,0,.8); pointer-events: none; }
+  #camBtn { position: fixed; top: 14px; right: 14px; display: flex; gap: 8px; }
+  #camBtn button { background: rgba(10,16,32,.7); color: #dde; border: 1px solid rgba(255,255,255,.2); border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(14,26,51,.55), rgba(5,8,18,.88)); }
+  .panel { background: rgba(14, 22, 44, .92); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 28px 34px; max-width: 560px; width: calc(100% - 32px); box-shadow: 0 10px 40px rgba(0,0,0,.5); max-height: calc(100% - 32px); overflow: auto; }
+  h1 { margin: 0 0 4px; font-size: 44px; letter-spacing: .06em; }
+  h1 span { color: #dcf53a; }
+  .sub { color: #aab3cc; margin-bottom: 22px; }
+  .opt { margin: 14px 0; }
+  .opt .label { font-size: 13px; color: #aab3cc; margin-bottom: 6px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { flex: 1; background: rgba(255,255,255,.06); color: #dde; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 9px 8px; font-size: 15px; cursor: pointer; }
+  .seg button.sel { background: #2f7fe0; border-color: #6aa8ff; color: #fff; font-weight: 700; }
+  .go { display: block; width: 100%; margin-top: 22px; background: #dcf53a; color: #111; font-weight: 800; font-size: 20px; border: 0; border-radius: 10px; padding: 13px; cursor: pointer; }
+  .go.sub2 { background: rgba(255,255,255,.1); color: #fff; font-size: 16px; margin-top: 10px; }
+  .help { margin-top: 20px; font-size: 13.5px; color: #c8d0e6; line-height: 1.75; }
+  .help kbd { background: rgba(255,255,255,.12); border-radius: 4px; padding: 1px 6px; font-family: inherit; font-size: 12.5px; }
+  .help summary { cursor: pointer; color: #aab3cc; }
+
+  #touch { position: fixed; inset: auto 0 0 0; height: 200px; pointer-events: none; }
+  #stick { position: absolute; left: 24px; bottom: 28px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); pointer-events: auto; }
+  #knob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .tbtn { position: absolute; width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; pointer-events: auto; border: 2px solid rgba(255,255,255,.3); }
+  #tShot { right: 24px; bottom: 40px; background: rgba(220,245,58,.4); }
+  #tLob { right: 124px; bottom: 24px; background: rgba(120,180,255,.35); }
+  #tDrop { right: 34px; bottom: 136px; width: 66px; height: 66px; font-size: 13px; background: rgba(255,160,120,.35); }
+  .tbtn.on { filter: brightness(1.8); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="score" class="hidden">
+  <table>
+    <tr class="t0"><td class="name">あなた<span class="srv" id="srv0"></span></td><td class="g" id="g0">0</td><td class="p" id="p0">0</td></tr>
+    <tr class="t1"><td class="name">CPU<span class="srv" id="srv1"></span></td><td class="g" id="g1">0</td><td class="p" id="p1">0</td></tr>
+  </table>
+  <div class="info" id="info"></div>
+</div>
+<div id="camBtn" class="hidden"><button id="bCam">視点 V</button><button id="bPause">II</button></div>
+<div id="msg" class="off"><div class="big" id="msgBig"></div><div class="small" id="msgSmall"></div></div>
+<div id="hint"></div>
+
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtn" id="tLob">ロブ</div>
+  <div class="tbtn" id="tDrop">ドロップ</div>
+  <div class="tbtn" id="tShot">打つ</div>
+</div>
+
+<div id="title" class="overlay">
+  <div class="panel">
+    <h1>PADEL <span>3D</span></h1>
+    <div class="sub">あなたと CPU のパートナーで、CPU の 2 人と対戦</div>
+    <div class="opt"><div class="label">相手の強さ</div>
+      <div class="seg" data-key="level"><button data-v="easy">よわい</button><button data-v="normal">ふつう</button><button data-v="hard">つよい</button></div></div>
+    <div class="opt"><div class="label">試合の長さ</div>
+      <div class="seg" data-key="games"><button data-v="1">1 ゲーム</button><button data-v="3">3 ゲーム先取</button><button data-v="6">1 セット（6 ゲーム）</button></div></div>
+    <div class="opt"><div class="label">40-40 になったら</div>
+      <div class="seg" data-key="golden"><button data-v="1">ゴールデンポイント（次の 1 点で決着）</button><button data-v="0">アドバンテージ</button></div></div>
+    <button class="go" id="start">試合開始</button>
+    <details class="help" open>
+      <summary>操作とルール</summary>
+      <div>
+        <kbd>←↑↓→</kbd> / <kbd>WASD</kbd> 移動　<kbd>J</kbd> / <kbd>スペース</kbd> 打つ　<kbd>K</kbd> ロブ　<kbd>L</kbd> ドロップ（短く落とす）<br>
+        球が近くに来る少し前にボタンを押すと、届いたところで振ります。<br>
+        打つ瞬間に <kbd>←</kbd><kbd>→</kbd> を押していると左右の角へ、<kbd>↑</kbd> で深く強く。押さなければ相手のいない所へ。<br>
+        頭より高い球は <kbd>J</kbd> でスマッシュ、<kbd>K</kbd> で置きにいくバンデハ。<br>
+        <kbd>V</kbd> 視点の切り替え　<kbd>Esc</kbd> 一時停止　ゲームパッドも使えます（A 打つ・B ロブ・X ドロップ・Y 視点）。<br>
+        <b>パデルのルール</b>：相手コートで 1 回バウンドしたあとなら、壁（ガラス・金網）に当たった球も打ち返せます。
+        ノーバウンドで相手の壁に当てたら失点。2 回バウンドする前に返します。サーブは下から打ち、対角のサービスエリアに入れます。
+        黄色い輪はあなたの側に落ちる場所（灰色はパートナーが取る球）。
+      </div>
+    </details>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="panel" style="max-width: 360px; text-align: center">
+    <h1 style="font-size: 32px">一時停止</h1>
+    <button class="go" id="resume">続ける</button>
+    <button class="go sub2" id="toTitle">タイトルへ（Esc）</button>
+  </div>
+</div>
+
+<div id="result" class="overlay hidden">
+  <div class="panel" style="max-width: 400px; text-align: center">
+    <h1 id="resTitle" style="font-size: 40px"></h1>
+    <div class="sub" id="resSub"></div>
+    <button class="go" id="again">もう一度</button>
+    <button class="go sub2" id="resTitleBtn">タイトルへ</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
